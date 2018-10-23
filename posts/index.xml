@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>Posts on Todarch Technical Blog</title>
+    <title>Posts on Todarch</title>
     <link>https://todarch.github.io/posts/</link>
-    <description>Recent content in Posts on Todarch Technical Blog</description>
+    <description>Recent content in Posts on Todarch</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <lastBuildDate>Thu, 18 Oct 2018 07:42:15 +0300</lastBuildDate>
