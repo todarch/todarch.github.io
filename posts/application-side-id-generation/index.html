@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
+<head>
+  <link href="//gmpg.org/xfn/11" rel="profile">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta name="generator" content="Hugo 0.49.2" />
+
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Application-side Id Generation &middot; Todarch</title>
+
+  
+  <link type="text/css" rel="stylesheet" href="https://todarch.github.io/css/print.css" media="print">
+  <link type="text/css" rel="stylesheet" href="https://todarch.github.io/css/poole.css">
+  <link type="text/css" rel="stylesheet" href="https://todarch.github.io/css/syntax.css">
+  <link type="text/css" rel="stylesheet" href="https://todarch.github.io/css/hyde.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Abril+Fatface|PT+Sans:400,400i,700">
+
+
+  
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/apple-touch-icon-144-precomposed.png">
+  <link rel="shortcut icon" href="/favicon.png">
+
+  
+  <link href="" rel="alternate" type="application/rss+xml" title="Todarch" />
+
+  
+</head>
+
+  <body class="theme-base-0d ">
+  <aside class="sidebar">
+  <div class="container sidebar-sticky">
+    <div class="sidebar-about">
+      <a href="https://todarch.github.io/"><h1>Todarch</h1></a>
+      <p class="lead">
+       Technical blog on experience, learning, problem-solving while building Todarch application. 
+      </p>
+    </div>
+
+    <nav>
+      <ul class="sidebar-nav">
+        <li><a href="https://todarch.github.io/">Home</a> </li>
+        
+      </ul>
+    </nav>
+
+    <p>&copy; 2018. All rights reserved. </p>
+  </div>
+</aside>
+
+    <main class="content container">
+    <div class="post">
+  <h1>Application-side Id Generation</h1>
+  <time datetime=2018-10-29T16:26:49&#43;0200 class="post-date">Mon, Oct 29, 2018</time>
+  
+
+<p>On the weekend, I needed to implement edit functionality for todo item.
+Partial update, full update, transactional boundary, aggregates. And here I am
+with the same problem that was bothering me for some time.
+Someone please do tell me how to get my IDs without a database so I can
+link my aggregates and have it there instead of magically waiting for the id to appear
+somewhere in the line?  I would like to have
+the id of the aggreate even before it will be persisted to the database. Every time
+you read something on <strong>DDD</strong>, there will be &ldquo;<em>design your models first without
+thinking about database concern</em>&rdquo; and &ldquo;<em>use unidirectional linking</em>&rdquo; and finally
+&ldquo;<em>use IDs instead of reference for linking</em>&rdquo;. They may not be exact words, but
+same thinking.</p>
+
+<p>At this point I would like to point out that I also prefer my IDs to have their
+own types instead of primitives such as <code>Long</code>. For example, <code>TodoId</code> and <code>TagId</code>.</p>
+
+<h3 id="ask-database-for-nextval">Ask Database for nextval</h3>
+
+<p><code>UUID</code> is the first thing comes to mind. However, some of us are not brave enough.
+I was already convinced to use a custom sequence for IDs. Later on, I was like why
+not ask for database to give me the next id so the entity can be constructed.</p>
+
+<p>The following was my first approach: using <code>Spring Data Repository</code>. Java 8 default
+method as helper and my sequence on database side named <code>taq_seq</code>.</p>
+
+<pre><code class="language-java">@Query(value = &quot;SELECT tag_seq.nextval FROM dual&quot;, nativeQuery = true)
+Long getNextSeriesId();
+
+default TagId nextId() {
+  return TagId.of(getNextSeriesId());
+}
+</code></pre>
+
+<p>I even pushed this piece of code to production. Of course, after all of the
+tests were green. However, when I tried to create a new todo. It failed. Failing in production is not the best thing (<em>going to find other means to prevent this happening soon</em>). The problem
+was that the sequence defined under <code>todarch_db</code> schema in <strong>PostgreSQL</strong>.
+And anyway that was not the correct way to ask for nextval for PostgreSQL.</p>
+
+<pre><code class="language-java">@Query(
+  value = &quot;SELECT nextval('todarch_td.\&quot;tag_seq\&quot;')&quot;,
+  nativeQuery = true)
+</code></pre>
+
+<p>Even after the query was fixed to work for the production database. Now we have failing
+tests. Because <code>H2</code> does not have <code>todarch_td</code>. Some fight with <code>Flyway</code>, H2, and
+Spring configuration did not feel right or easy. Specially, when I keep looking
+at the <code>nativeQuery = true</code> part. What if tomorrow we changed to MySQL(even in
+our fantasies), what if we changed the schema in external configuration? Two
+methods for the same operation on interface? Many annoyances with this approach so
+that made me brave enough to think about the other girl, I mean approach.</p>
+
+<h3 id="use-uuid">Use UUID</h3>
+
+<p>Another option is to use UUID. You do not have to trip to database to get a
+simple value. And imagine it is not just going to be unique for the table but
+universally. That has some advantages in itself. Unfortunately, some people are
+so discouraging that I started to have nightmares on the way of implementing
+it. Some blog posts:</p>
+
+<ul>
+<li><p><a href="https://tomharrisonjr.com/uuid-or-guid-as-primary-keys-be-careful-7b2aa3dcb439">Do not store UUID as String</a></p></li>
+
+<li><p><a href="https://blog.codinghorror.com/primary-keys-ids-versus-guids/">Encouraging, then referencing something that is not</a></p></li>
+
+<li><p><a href="https://dba.stackexchange.com/questions/69254/whats-the-most-efficient-uuid-column-type">How to store UUID</a></p></li>
+
+<li><p><a href="https://www.percona.com/blog/2014/12/19/store-uuid-optimized-way/">Benchmarks</a></p></li>
+
+<li><p><a href="https://medium.com/@swhp/work-with-uuid-in-jpa-and-postgresql-86a59ea989cd">JPA, PostgreSQL, UUID</a></p></li>
+</ul>
+
+<p>Again even though some databases support UUIDs natively, could not expect that
+from all of them. That means you will not have the best support to store it.
+I admit that UUID format looks cool but integer values seems to be more normal for id for me.
+Another reason was that I already had some data in the database with normal
+integer IDs. I would have some headache on that side (<em>this means that there
+should be import/export functionality for the application</em>). What if on the way
+of using it, it would cause more trouble than good? Afterall, I was not so
+comfortable and brave to follow that path with the information I have gathered,
+the situation I have had. Maybe next time.</p>
+
+<h3 id="dummy-way">Dummy way</h3>
+
+<p>While searching for the options, I found it on a SO answer(could not find the link, will add when found). It was in
+the early of my searching hours. And I was like &ldquo;<em>%$x, this is a stupid way</em>&rdquo;. Then
+I ended up implementing it. And for now I am happy with it. Sharing with you
+all. So, you could tell me where it is wrong.</p>
+
+<p>I will explain in simple steps:</p>
+
+<ol>
+<li><p>Create a new sequence on database if you do not want to use existing one.</p></li>
+
+<li><p>Define a new dummy entity, which has a single field annotated with @Id.</p></li>
+
+<li><p>Whenever you need an id for the original entity, you could save the dummy
+entity, get its id, and use for the original one.</p></li>
+</ol>
+
+<p>Some code may explain a bit better:</p>
+
+<p>A dummy entity definition, easy to instantiate. We just need <code>id</code> field, nothing
+more.</p>
+
+<pre><code class="language-java">@Table(name = &quot;todo_id&quot;)
+@Entity
+class TodoIdEntity {
+  @Id
+  @GeneratedValue(
+    strategy = GenerationType.SEQUENCE,
+    generator = &quot;todo_id_generator&quot;)
+  @SequenceGenerator(
+      name = &quot;todo_id_generator&quot;,
+      sequenceName = &quot;todo_id_seq&quot;,
+      initialValue = 300,
+      allocationSize = 100)
+  private Long id;
+
+  protected TodoIdEntity() {
+    // for jpa/hibernate
+  }
+
+  public Long id() {
+    return id;
+  }
+}
+</code></pre>
+
+<p>A repository for just saving a dummy entity is an overkill but simple.</p>
+
+<pre><code class="language-java">@Repository
+interface TodoIdRepository extends JpaRepository&lt;TodoIdEntity, Long&gt; {
+}
+</code></pre>
+
+<p>Public facing <code>IdGenerator</code> that nobody should know what crazy work we are doing
+behind the scenes.</p>
+
+<pre><code class="language-java">@Component
+@AllArgsConstructor
+public class TodoIdGenerator {
+
+  private final TodoIdRepository todoIdRepository;
+
+  public TodoId next() {
+    return TodoId.of(todoIdRepository.save(new TodoIdEntity()).id());
+  }
+}
+</code></pre>
+
+<p>I created different dummy entities for business different entities. You may check out the whole change <a href="https://github.com/todarch/todarch-td/pull/42/files">here</a>.</p>
+
+<p>The dummy entity and its repository are encapsulated to the package itself. The
+only public part is the next() method. Inject the Generator and start using it.</p>
+
+<pre><code class="language-java">private final TodoIdGenerator todoIdGenerator;
+
+TodoFactory.from(todoCreationCommand, todoIdGenerator.next());
+</code></pre>
+
+<h4 id="advantages">Advantages</h4>
+
+<ol>
+<li><p>Had the id for the business entity <em>before saving it</em>.</p></li>
+
+<li><p>Postponed the nightmares of <em>storing UUID</em> in a performant and vendor-independent way.</p></li>
+
+<li><p>Did not have to write the <em>native query</em>. Hibernate will take care of that part (hopefully).</p></li>
+
+<li><p>Did not have to make <em>changes on the existing data</em> in the database.</p></li>
+</ol>
+
+<h4 id="disadvantages">Disadvantages</h4>
+
+<ol>
+<li><p>Unnecessary <em>table and sequence creation</em>. This may not be possible in some
+setting like oh let&rsquo;s create a dummy table.</p></li>
+
+<li><p><em>Not %100 sure</em> if there will be any problem with such way of generating and
+using the id in another table. It is my lack of knowledge with all Hibernate magic.</p></li>
+
+<li><p>There is the <em>extra trip</em> to database, and <em>space</em> to store dummy entity. I
+believe that it will not hurt to delete dummy entries at some interval.</p></li>
+
+<li><p><em>Some extra code</em> to write. Here Spring helps a lot. Does not even worth writing
+test or another. Encapsulation also helps in case of a change with way of
+getting the id.</p></li>
+</ol>
+
+<p>For now, I am actually happy with the result. The application is up and running,
+I can create new todos. I did not have to invest deeply with UUID to have IDs
+before saving the entity. It fit perfectly with what already existed. The
+whole point of the project (aside from building something useful) is to try out
+new things actively in practice. This was a crazy idea to try. We will see how
+it will work out.</p>
+
+<p>You may want to join us to build the next beatiful thing. Check out our
+<a href="https://github.com/todarch/">Github</a>
+or <a href="https://todarch.com">application itself</a></p>
+
+<p><a href="https://www.callicoder.com/distributed-unique-id-sequence-number-generator/">Long UUID Generation</a></p>
+
+</div>
+
+
+    </main>
+
+    
+  </body>
+</html>

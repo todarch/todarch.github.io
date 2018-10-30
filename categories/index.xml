@@ -10,5 +10,23 @@
 	<atom:link href="https://todarch.github.io/categories/index.xml" rel="self" type="application/rss+xml" />
     
     
+    <item>
+      <title>Ddd</title>
+      <link>https://todarch.github.io/categories/ddd/</link>
+      <pubDate>Mon, 29 Oct 2018 16:26:49 +0200</pubDate>
+      
+      <guid>https://todarch.github.io/categories/ddd/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Java</title>
+      <link>https://todarch.github.io/categories/java/</link>
+      <pubDate>Mon, 29 Oct 2018 16:26:49 +0200</pubDate>
+      
+      <guid>https://todarch.github.io/categories/java/</guid>
+      <description></description>
+    </item>
+    
   </channel>
 </rss>

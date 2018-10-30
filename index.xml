@@ -6,10 +6,19 @@
     <description>Recent content on Todarch</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Thu, 18 Oct 2018 07:42:15 +0300</lastBuildDate>
+    <lastBuildDate>Mon, 29 Oct 2018 16:26:49 +0200</lastBuildDate>
     
 	<atom:link href="https://todarch.github.io/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Application-side Id Generation</title>
+      <link>https://todarch.github.io/posts/application-side-id-generation/</link>
+      <pubDate>Mon, 29 Oct 2018 16:26:49 +0200</pubDate>
+      
+      <guid>https://todarch.github.io/posts/application-side-id-generation/</guid>
+      <description>On the weekend, I needed to implement edit functionality for todo item. Partial update, full update, transactional boundary, aggregates. And here I am with the same problem that was bothering me for some time. Someone please do tell me how to get my IDs without a database so I can link my aggregates and have it there instead of magically waiting for the id to appear somewhere in the line?</description>
+    </item>
     
     <item>
       <title>Hello World</title>
